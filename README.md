@@ -1,5 +1,7 @@
 # Deep Q-Network (DQN) Module for Go
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/iampaapa/dqn.svg)](https://pkg.go.dev/github.com/iampaapa/dqn)
+
 This module provides a flexible and efficient implementation of the Deep Q-Network (DQN) algorithm in Go. It's designed for industrial applications, offering robust reinforcement learning capabilities for complex decision-making tasks.
 
 ## Table of Contents
