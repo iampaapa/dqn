@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"image/color"
+	"log"
 	"math"
 	"math/rand"
 
@@ -9,7 +11,6 @@ import (
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
-	"gonum.org/v1/plot/palette/moreland"
 
 	"github.com/iampaapa/dqn"
 )
@@ -19,6 +20,7 @@ type ManufacturingEnvironment struct {
 	temperature float64
 	pressure    float64
 	flow        float64
+	stepCount   int
 }
 
 func NewManufacturingEnvironment() *ManufacturingEnvironment {
@@ -51,8 +53,12 @@ func (env *ManufacturingEnvironment) Step(action int) ([]float64, float64, bool)
 	reward -= math.Abs(env.pressure-60) / 5.0
 	reward -= math.Abs(env.flow-12) / 2.0
 
-	// Check if we've reached a terminal state
-	done := reward > -1.0 // Consider the process optimized if reward is high enough
+	// Increment step count
+	env.stepCount++
+
+	// Check if we've reached a terminal state (after 10 rounds)
+	// done := env.stepCount >= 10
+	done := reward > -50.0 // Alternative: Consider the process optimized if reward is high enough
 
 	// Return the new state, reward, and whether we're done
 	return []float64{env.temperature, env.pressure, env.flow}, reward, done
@@ -62,6 +68,7 @@ func (env *ManufacturingEnvironment) Reset() []float64 {
 	env.temperature = 150.0 + rand.Float64()*20.0 - 10.0
 	env.pressure = 50.0 + rand.Float64()*10.0 - 5.0
 	env.flow = 10.0 + rand.Float64()*2.0 - 1.0
+	env.stepCount = 0 // Reset step count
 	return []float64{env.temperature, env.pressure, env.flow}
 }
 
@@ -138,17 +145,18 @@ func runExperiment(agent interface{}, env *ManufacturingEnvironment, episodes in
 				action = a.GetAction(state)
 			}
 
-			nextState, reward, done := env.Step(action)
+			nextState, reward, stepDone := env.Step(action)
 			totalReward += reward
 
 			switch a := agent.(type) {
 			case *dqn.DQN:
-				a.Train(dqn.Normalize(state), dqn.Normalize(nextState), action, int(reward*100), done)
+				a.Train(dqn.Normalize(state), dqn.Normalize(nextState), action, int(reward*100), stepDone)
 			case *QLearning:
 				a.Update(state, action, reward, nextState)
 			}
 
 			state = nextState
+			done = stepDone // Update the outer done variable
 		}
 
 		rewards[i] = totalReward
@@ -157,9 +165,8 @@ func runExperiment(agent interface{}, env *ManufacturingEnvironment, episodes in
 	return rewards
 }
 
-
 func plotResults(dqnRewards, qLearningRewards []float64) {
-	p:= plot.New()
+	p := plot.New()
 
 	p.Title.Text = "DQN vs Q-Learning Performance"
 	p.X.Label.Text = "Episode"
@@ -175,38 +182,34 @@ func plotResults(dqnRewards, qLearningRewards []float64) {
 		qLearningData[i].Y = qLearningRewards[i]
 	}
 
+	// Create a line plotter for the DQN data
 	dqnLine, err := plotter.NewLine(dqnData)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
-	dqnColor, err := moreland.SmoothBlueRed().At(0.8)
-	if err != nil {
-		panic(err)
-	}
-	dqnLine.Color = dqnColor
+	dqnLine.Color = color.RGBA{R: 255, G: 0, B: 0, A: 255} // Red
 
+	// Create a line plotter for the Q-Learning data
 	qLearningLine, err := plotter.NewLine(qLearningData)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
-	qLearningColor, err := moreland.SmoothBlueRed().At(0.2)
-	if err != nil {
-		panic(err)
-	}
-	qLearningLine.Color = qLearningColor
+	qLearningLine.Color = color.RGBA{B: 255, A: 255} // Blue
 
+	// Add the lines to the plot
 	p.Add(dqnLine, qLearningLine)
 	p.Legend.Add("DQN", dqnLine)
 	p.Legend.Add("Q-Learning", qLearningLine)
 
+	// Save the plot to a PNG file
 	if err := p.Save(8*vg.Inch, 4*vg.Inch, "performance_comparison.png"); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
 func main() {
 	env := NewManufacturingEnvironment()
-	episodes := 1
+	episodes := 1000
 
 	fmt.Println("Starting DQN experiment...")
 	dqnAgent := dqn.NewDQN(3, 64, 6, 10000, 0.99, 0.1, 0.001, dqn.ReLU)
