@@ -7,11 +7,11 @@ import (
 
 // DQN represents the Deep Q-Learning algorithm.
 type DQN struct {
-	qNetwork      *QNetwork
-	replayBuffer  *ReplayBuffer
-	gamma         float64
-	epsilon       float64
-	learningRate  float64
+	qNetwork     *QNetwork
+	replayBuffer *ReplayBuffer
+	gamma        float64
+	epsilon      float64
+	learningRate float64
 }
 
 // NewDQN initializes a new DQN instance.
